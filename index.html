@@ -1,0 +1,212 @@
+<html>
+<head>
+  <link href="css/bootstrap.min.css" rel="stylesheet"></link>
+  <script src="./js/config.js"></script>
+  <script src="./js/bootstrap.min.js"></script>
+  <script>
+    let lstGenerateRequest={};
+    let pizzaIdDetail=null;
+
+    const handleError=function(err){
+      //todo
+      console.error(err.message);
+    }
+    
+    const notifyPizzaUpdate=function(pizza){
+      //todo
+      console.log("notify: "+JSON.stringify(pizza));
+    }
+
+    const init = function(){
+      showAllPizza();
+      document.getElementById("btnGenerate").addEventListener("click",generateClick);
+      
+    }
+
+    const updateAccessBtnGenerate=function(){
+      document.getElementById().disabled = !pizzaIdDetail || !lstGenerateRequest[pizzaIdDetail];
+    }
+
+    const generateClick = function(){
+      generateImage(pizzaIdDetail).then(pizza=>{
+        if(pizzaIdDetail==pizza.pizzaId){
+          fillDetail(pizza);
+        }
+        else{
+          notifyPizzaUpdate(pizza);
+        }
+      }).catch(err=>handleError(err));
+    }
+
+    const handleSpinner=function(btnId, spin){
+      let btn = document.getElementById(btnId);
+      let spinner = document.getElementById(btn.getAttribute("spinner"));
+      let label = document.getElementById(btn.getAttribute("spinnerLabel"));
+
+      btn.disabled=spin;
+      spinner.style.display=spin?"inline-block":"none";
+      label.style.display=!spin?"inline-block":"none";
+    }
+
+    const createItemCard=function(pizza){
+      let pizzaCard = createElem("div","col");
+      let card = createElem("div","card");
+      pizzaCard.appendChild(card);
+
+      let body = createElem("div","card-body");
+      card.appendChild(body);
+
+      body.appendChild(createElem("h5","card-title",pizza.name));
+      body.appendChild(createElem("p","card-text",pizza.ingredients));
+
+      let detail=createElem("a","btn btn-primary float-end","Details");
+
+      let detailClick = function (event) {
+          event.stopPropagation()
+          let bsOffcanvas = new bootstrap.Offcanvas(document.getElementById("pizzaDetail"));
+          getPizza(pizza.pizzaId).then(curPizza=>{
+            fillDetail(curPizza);
+            
+            bsOffcanvas.show();
+          }).catch(err=>handleError(err));
+      }
+
+      detail.addEventListener("click",detailClick);
+      body.appendChild(detail);
+
+      return pizzaCard;
+    }
+
+    const createElem=function(tagname,classnames,text){
+      let tag = document.createElement(tagname);
+      tag.className=classnames;
+      if(text){
+        tag.appendChild(document.createTextNode(text));
+      }
+      return tag;
+    }
+
+    const getPizzas=function(){
+      return fetch(getHost()+"/pizzas").then(res=>{
+        if(!res.ok){
+          throw new Error("Http error "+res.status);
+        }
+        return res;
+      }).then(res=>{
+        return res.json();
+      });
+    }
+
+    const getPizza=function(idPizza){
+      return fetch(getHost()+"/pizzas/"+idPizza).then(res=>{
+        if(!res.ok){
+          throw new Error("Http error "+res.status);
+        }
+        return res;
+      }).then(res=>{
+        return res.json();
+      });
+    }
+
+    const generateImage=function(idPizza){
+      return fetch(getHost()+"/pizzas/"+idPizza+"/generateImage").then(res=>{
+        if(!res.ok){
+          throw new Error("Http error "+res.status);
+        }
+        return res;
+      }).then(res=>{
+        return res.json();
+      });
+    }
+
+    const clearChilds=function(elem){
+      while(elem.firstChild){
+        elem.removeChild(elem.firstChild);
+      }
+    }
+
+    const showAllPizza = function(){
+      getPizzas().then(pizzas=>{
+        let frag = document.createDocumentFragment();
+        pizzas.forEach(pizza => {
+          frag.appendChild(createItemCard(pizza));
+        });
+        
+        let menu = document.getElementById("menu");
+        clearChilds(menu);
+        menu.appendChild(frag);
+      }).catch(err=>handleError(err));
+    }
+
+    const fillDetail=function(pizza){
+      window.pizzaIdDetail=pizza?pizza.pizzaId:null;
+      document.getElementById("pizzaDetailLabel").textContent=pizza?pizza.name:"";
+      document.getElementById("pizzaCateg").textContent=pizza?pizza.category:"";
+      document.getElementById("pizzaIngredients").textContent=pizza?pizza.ingredients:"";
+      document.getElementById("pizzaImg").src=(pizza && pizza.urlImage)?"images/"+pizza.urlImage:"images/notfound.jpg";
+      fillPrice(pizza?pizza.prices:null);
+    }
+
+    const fillPrice=function(prices){
+      let lstPrice = document.getElementById("pizzaPrices");
+      clearChilds(lstPrice);
+
+      if(prices){
+        prices.forEach(price => {
+          let tr = document.createElement("tr");
+        
+          let tdSize = document.createElement("td");
+          tdSize.appendChild(document.createTextNode(price.size));
+          tr.appendChild(tdSize);
+
+          let tdPrice = document.createElement("td");
+          tdPrice.appendChild(document.createTextNode(price.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2,})+" $"));
+          tr.appendChild(tdPrice);
+
+          lstPrice.appendChild(tr);
+        });
+      }
+    }
+
+    window.addEventListener("load",init);
+  </script>
+  <link href="css/index.css" rel="stylesheet"></link>
+</head>
+<body>
+  <nav class="navbar navbar-dark bg-dark mb-4 px-4">
+    <a class="navbar-brand" href="#">Menu Graphique</a>
+    <button class="btn btn-success my-2 my-sm-0" id="btnStatus" onclick="location='status.html';">Status</button>    
+  </nav>
+
+  <div class = "container" >
+    <h2 class="mb-4">Menu</h2>
+    <div class="row row-cols-4 g-4" id="menu"></div>
+  </div>
+
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="pizzaDetail" aria-labelledby="pizzaDetailLabel">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title" id="pizzaDetailLabel">Detail</h5>
+      <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+      <img class="img-fluid" id="pizzaImg" src="images/notfound.jpg"/>
+      <h5>Category</h5>
+      <p id="pizzaCateg"></p>
+      <h5>Ingredients</h5>
+      <p id="pizzaIngredients"></p>
+      <h5>Prices</h5>
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th scope="col">Size</th>
+            <th scope="col">Price</th>
+          </tr>
+        </thead>
+        <tbody id="pizzaPrices"></tbody>
+      </table>
+      <button class="btn btn-primary" id="btnGenerate">Generate Image</button>
+    </div>
+  </div>
+
+</body>
+</html>
