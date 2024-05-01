@@ -2,50 +2,68 @@
 <head>
   <link href="css/bootstrap.min.css" rel="stylesheet"></link>
   <script src="./js/config.js"></script>
+  <script src="./js/utils.js"></script>
   <script src="./js/bootstrap.min.js"></script>
   <script>
-    let lstGenerateRequest={};
-    let pizzaIdDetail=null;
+    window.lstGenerateRequest={};
+    window.pizzaIdDetail=null;
 
     const handleError=function(err){
-      //todo
+      showNotification(err.message,"Error:","danger");
       console.error(err.message);
     }
     
     const notifyPizzaUpdate=function(pizza){
-      //todo
-      console.log("notify: "+JSON.stringify(pizza));
+      if(pizza){
+        showComplexNotification(createSuccessMessage(pizza),"Completed: ","success");
+      }
+    }
+    const createSuccessMessage=function(pizza){
+      let messageCtrl = document.createElement("span");
+      messageCtrl.appendChild(document.createTextNode("Image generated for \""+pizza.name+"\" "));
+      
+      let link = document.createElement("a");
+      link.appendChild(document.createTextNode("See..."));
+      link.setAttribute("data-bs-dismiss","alert");
+
+      messageCtrl.appendChild(link);
+      let fct=function(){
+        event.stopPropagation()
+        let bsOffcanvas = new bootstrap.Offcanvas(document.getElementById("pizzaDetail"));
+        fillDetail(pizza);
+        bsOffcanvas.show();
+      }
+      link.addEventListener("click",fct);
+
+      return messageCtrl;
     }
 
     const init = function(){
       showAllPizza();
       document.getElementById("btnGenerate").addEventListener("click",generateClick);
-      
     }
 
     const updateAccessBtnGenerate=function(){
-      document.getElementById().disabled = !pizzaIdDetail || !lstGenerateRequest[pizzaIdDetail];
+      let crunching=!pizzaIdDetail || window.lstGenerateRequest[pizzaIdDetail];
+      handleBtnSpinner("btnGenerate",crunching);
     }
 
     const generateClick = function(){
+      let pizzaId=pizzaIdDetail;
+      window.lstGenerateRequest[pizzaId]=new Date();
+      updateAccessBtnGenerate();
       generateImage(pizzaIdDetail).then(pizza=>{
+        delete window.lstGenerateRequest[pizzaId];
         if(pizzaIdDetail==pizza.pizzaId){
           fillDetail(pizza);
         }
         else{
           notifyPizzaUpdate(pizza);
         }
-      }).catch(err=>handleError(err));
-    }
-
-    const handleSpinner=function(btnId, spin){
-      let btn = document.getElementById(btnId);
-      let spinner = document.getElementById(btn.getAttribute("spinner"));
-      let label = document.getElementById(btn.getAttribute("spinnerLabel"));
-
-      btn.disabled=spin;
-      spinner.style.display=spin?"inline-block":"none";
-      label.style.display=!spin?"inline-block":"none";
+      }).catch(err=>{
+        delete window.lstGenerateRequest[pizzaId];
+        handleError(err);
+      });
     }
 
     const createItemCard=function(pizza){
@@ -75,15 +93,6 @@
       body.appendChild(detail);
 
       return pizzaCard;
-    }
-
-    const createElem=function(tagname,classnames,text){
-      let tag = document.createElement(tagname);
-      tag.className=classnames;
-      if(text){
-        tag.appendChild(document.createTextNode(text));
-      }
-      return tag;
     }
 
     const getPizzas=function(){
@@ -119,12 +128,6 @@
       });
     }
 
-    const clearChilds=function(elem){
-      while(elem.firstChild){
-        elem.removeChild(elem.firstChild);
-      }
-    }
-
     const showAllPizza = function(){
       getPizzas().then(pizzas=>{
         let frag = document.createDocumentFragment();
@@ -145,6 +148,7 @@
       document.getElementById("pizzaIngredients").textContent=pizza?pizza.ingredients:"";
       document.getElementById("pizzaImg").src=(pizza && pizza.urlImage)?"images/"+pizza.urlImage:"images/notfound.jpg";
       fillPrice(pizza?pizza.prices:null);
+      updateAccessBtnGenerate();
     }
 
     const fillPrice=function(prices){
@@ -168,13 +172,36 @@
       }
     }
 
+    const showNotification=function(message, title, alertType){
+      let notifs = document.getElementById("nofications");
+      let alert = createAlert(message, title, alertType);
+      notifs.appendChild(alert);
+    }
+
+    const showComplexNotification=function(messageCtrl, title, alertType){
+      let notifs = document.getElementById("nofications");
+      let alert = createAlertBox(messageCtrl, title, alertType);
+      notifs.appendChild(alert);
+    }
+
     window.addEventListener("load",init);
+
   </script>
   <link href="css/index.css" rel="stylesheet"></link>
+  <link rel="prefetch" as="image" href="images/notfound.jpg">
+  <link rel="prefetch" as="image" href="images/pizza1.jpg">
+  <link rel="prefetch" as="image" href="images/pizza2.jpg">
+  <link rel="prefetch" as="image" href="images/pizza3.jpg">
+  <link rel="prefetch" as="image" href="images/pizza4.jpg">
+  <link rel="prefetch" as="image" href="images/pizza5.jpg">
+  <link rel="prefetch" as="image" href="images/pizza6.jpg">
+  <link rel="prefetch" as="image" href="images/pizza7.jpg">
+  <link rel="prefetch" as="image" href="images/pizza8.jpg">
 </head>
 <body>
   <nav class="navbar navbar-dark bg-dark mb-4 px-4">
     <a class="navbar-brand" href="#">Menu Graphique</a>
+
     <button class="btn btn-success my-2 my-sm-0" id="btnStatus" onclick="location='status.html';">Status</button>    
   </nav>
 
@@ -189,7 +216,7 @@
       <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
     </div>
     <div class="offcanvas-body">
-      <img class="img-fluid" id="pizzaImg" src="images/notfound.jpg"/>
+      <img class="img-fluid rounded" id="pizzaImg" src="images/notfound.jpg"/>
       <h5>Category</h5>
       <p id="pizzaCateg"></p>
       <h5>Ingredients</h5>
@@ -204,9 +231,15 @@
         </thead>
         <tbody id="pizzaPrices"></tbody>
       </table>
-      <button class="btn btn-primary" id="btnGenerate">Generate Image</button>
+      <button type="button" id="btnGenerate" class="btn btn-primary mb-2" labelId="btnLabel" spinnerId="btnSpinner" spinnerLabelId="btnSpinnerLabel">
+        <span id="btnLabel">Generate Image</span>
+        <span id="btnSpinner" class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="display:none;"></span>
+        <span id="btnSpinnerLabel" style="display:none;">Generating...</span>
+      </button>   
     </div>
   </div>
+  <div tabindex=-1 id="nofications" class="notificationPan">
 
+  </div>
 </body>
 </html>

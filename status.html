@@ -4,20 +4,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   <link href="css/bootstrap.min.css" rel="stylesheet"></link>
   <script src="js/config.js"></script>
+  <script src="js/utils.js"></script>
   <script>
-    const nullValue=function(value,defaultValue){
-      return typeof(value) != 'undefined' && value!==null?value:defaultValue;
-    }
-
-    const epochToIsoData=function(epoch){
-      if(!epoch){
-        return "";
-      }
-      let date = new Date(epoch);
-      
-      return date.toISOString();
-    }
-
     const refresh=function(){
       fetch(getHost()+"/status").then(res=>{
         if(!res.ok){
@@ -67,18 +55,61 @@
 
     const init = function(){
       document.getElementById("btnRefresh").addEventListener("click",refresh);
+      document.getElementById("btnGenerate").addEventListener("click",generateLoadClick);
+      updateAccess(false);
       refresh();
     }
 
-    const handleSpinner=function(btnId, spin){
-      let btn = document.getElementById(btnId);
-      let spinner = document.getElementById(btn.getAttribute("spinner"));
-      let label = document.getElementById(btn.getAttribute("spinnerLabel"));
-
-      btn.disabled=spin;
-      spinner.style.display=spin?"inline-block":"none";
-      label.style.display=!spin?"inline-block":"none";
+    const handleError = function(err){
+      showError(err.message);
+      console.error(err);
     }
+
+    const generateLoadClick = function(){
+      let vcpuUsage = parseInt(document.getElementById("vcpuUsage").value,10);
+      let vcpuDuration = parseInt(document.getElementById("vcpuDuration").value,10);
+
+      if(isNaN(vcpuUsage) || !(vcpuUsage>=10 && vcpuUsage<=100)){
+        handleError(new Error("vCPU usage must be between 10 and 100."));
+        return;
+      }
+
+      if(isNaN(vcpuDuration) || !(vcpuDuration>0)){
+        handleError(new Error("Duration must be a positive number."));
+        return;
+      }
+      updateAccess(true);
+      generateLoad(vcpuUsage/100.0,vcpuDuration*1000).then(res=>{
+        //terminer
+      }).catch(err=>{
+        handleError(err);
+      }).finally(()=>{
+        updateAccess(false);
+      });
+    }
+
+    const updateAccess=function(crunching){
+      let usage = document.getElementById("vcpuUsage");
+      let duration = document.getElementById("vcpuDuration");
+      usage.disabled=crunching;
+      usage.readOnly=crunching;
+      duration.disabled=crunching;
+      duration.readOnly=crunching;
+      handleBtnSpinner("btnGenerate",crunching);
+    }
+
+    const generateLoad = function(load, duration){
+      return fetch(getHost()+"/loadtest?load="+load+"&duration="+duration).then(res=>{
+        if(!res.ok){
+          return new Error("HTTP error "+res.status);
+        }
+        return res;
+      });
+    }
+
+    const showError=function(erreur,title, alertType){
+      showAlert("divGenerate",erreur,title, alertType);
+    }    
 
     window.addEventListener("load",init);
   </script>
@@ -104,6 +135,25 @@
       </tbody>
     </table>
 
+    <div class="container" id="divGenerate">
+      <h1>Generate workload</h1>
+      <form class="form-inline">
+        <div class="form-group mb-2">
+          <label for="vcpuUsage">% vCPU</label>
+          <input type="text" class="form-control" id="vcpuUsage" aria-describedby="% vCPU" placeholder="10-100" value="100">
+        </div>
+        <div class="form-group mb-2">
+          <label for="vcpuDuration">Duration (in sec)</label>
+          <input type="text" class="form-control" id="vcpuDuration" aria-describedby="Durée d'utilisation" value="600">
+        </div>
+        
+        <button type="button" id="btnGenerate" class="btn btn-primary mb-2" labelId="btnLabel" spinnerId="btnSpinner" spinnerLabelId="btnSpinnerLabel">
+          <span id="btnLabel">Generate</span>
+          <span id="btnSpinner" class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="display:none;"></span>
+          <span id="btnSpinnerLabel" style="display:none;">Crunching...</span>
+        </button>        
+      </form>
+    </div>
 </main>
 <script src="./js/jquery-3.7.1.min.js"></script>
 <script src="./js/bootstrap.min.js"></script>
